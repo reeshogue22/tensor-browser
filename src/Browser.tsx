@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+// Service worker (sw.js) intercepts all cross-origin requests and proxies them
 
 interface BrowserState {
   url: string;
@@ -11,7 +12,7 @@ function toUrl(input: string): string {
   if (!input) return "";
   if (/^https?:\/\//i.test(input)) return input;
   if (/^[\w-]+\.[\w.]{2,}/.test(input) && !input.includes(" ")) return `https://${input}`;
-  return `https://www.google.com/search?q=${encodeURIComponent(input)}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(input)}&hl=en`;
 }
 
 export function Browser() {
@@ -103,6 +104,8 @@ export function Browser() {
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
+  // No srcdoc — iframe navigates to /api/render which gives a real origin
+
   function navigate(url: string) {
     setState({ url, title: "Loading…", loading: true });
     setDisplayUrl(url);
@@ -115,9 +118,9 @@ export function Browser() {
     if (url) navigate(url);
   }
 
-  const proxiedSrc = state.url
-    ? `/api/proxy?url=${encodeURIComponent(state.url)}`
-    : "";
+  function onIframeLoad() {
+    setState((s) => ({ ...s, loading: false }));
+  }
 
   return (
     <div className="browser">
@@ -143,10 +146,11 @@ export function Browser() {
         {state.url ? (
           <iframe
             ref={iframeRef}
-            src={proxiedSrc}
+            key={state.url}
+            src={`/api/render?url=${encodeURIComponent(state.url)}`}
             title={state.title}
-            sandbox="allow-scripts allow-same-origin allow-forms"
-            onLoad={() => setState((s) => ({ ...s, loading: false }))}
+            /* sandbox removed — /api/render is same-origin, security handled server-side */
+            onLoad={onIframeLoad}
           />
         ) : (
           <div className="browser-idle">
