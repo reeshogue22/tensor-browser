@@ -6,6 +6,14 @@ interface BrowserState {
   loading: boolean;
 }
 
+function toUrl(input: string): string {
+  input = input.trim();
+  if (!input) return "";
+  if (/^https?:\/\//i.test(input)) return input;
+  if (/^[\w-]+\.[\w.]{2,}/.test(input) && !input.includes(" ")) return `https://${input}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(input)}`;
+}
+
 export function Browser() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [state, setState] = useState<BrowserState>({
@@ -14,6 +22,7 @@ export function Browser() {
     loading: false,
   });
   const [displayUrl, setDisplayUrl] = useState("");
+  const [searchInput, setSearchInput] = useState("");
 
   // Poll backend for navigation commands from the AI
   useEffect(() => {
@@ -97,6 +106,13 @@ export function Browser() {
   function navigate(url: string) {
     setState({ url, title: "Loading…", loading: true });
     setDisplayUrl(url);
+    setSearchInput(url);
+  }
+
+  function onSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const url = toUrl(searchInput);
+    if (url) navigate(url);
   }
 
   const proxiedSrc = state.url
@@ -110,9 +126,17 @@ export function Browser() {
           <span className="browser-dot" />
           AI
         </div>
-        <div className="browser-url">
-          {state.loading ? "Loading…" : displayUrl || "waiting for navigation…"}
-        </div>
+        <form className="browser-search" onSubmit={onSearchSubmit}>
+          <input
+            className="browser-search-input"
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="search or enter URL…"
+            spellCheck={false}
+            autoComplete="off"
+          />
+        </form>
         {state.loading && <div className="browser-spinner" />}
       </div>
       <div className="browser-viewport">
